@@ -28,16 +28,24 @@ function pickBp(bp) {
   for (const k of Object.keys(bp)) if (/uf2|fs_start|fs_end|littlefs|flash_offset|mklittlefs/i.test(k)) o[k] = bp[k];
   return { totalKeys: Object.keys(bp).length, picked: o };
 }
+const BP_RE = /^(build\.(mcu|core|variant|board|arch|series|ldscript|extra_flags|softdevice|sd_|.*addr|.*flash|.*offset|.*family|.*uf2|.*bootloader|.*version|vid|pid|usb_.*|f_cpu|variant_system_lib|.*sd.*)|upload\.|bootloader\.|recipe\.(objcopy|hooks\.objcopy|hooks\.savehex|output|hooks\.postbuild)|runtime\.(platform\.path|tools\..*path)|serial\.|version|name|nordic\.|nrf.*|.*uf2.*|.*softdevice.*)/i;
+function dumpProps(tag, bp) {
+  if (!bp) { log(`[${tag}] no buildProperties`); return; }
+  const f = path.join(os.homedir(), `uf2spike-${tag}-buildprops.json`);
+  try { fs.writeFileSync(f, JSON.stringify(bp, null, 1)); log(`[${tag}] FULL buildProperties (${Object.keys(bp).length} keys) written to`, f); } catch (e) { log('write failed', String(e)); }
+  const lines = Object.keys(bp).filter((k) => BP_RE.test(k)).sort().map((k) => `  ${k} = ${String(bp[k]).slice(0, 300)}`);
+  log(`[${tag}] filtered buildProperties (${lines.length}):\n` + lines.join('\n'));
+}
 function describe(api) {
   log('typeof exports:', typeof api, '| own keys:', Object.keys(api), '| proto keys:', Object.getOwnPropertyNames(Object.getPrototypeOf(api) || {}));
   for (const k of KEYS) {
     let v; try { v = api[k]; } catch (e) { v = `[getter threw: ${e}]`; }
     if (k === 'boardDetails' && v) {
       log(`api.${k}: fqbn=`, v.fqbn, '| name=', v.name, '| keys=', Object.keys(v), '| configOptions.length=', (v.configOptions || []).length);
-      log('  buildProperties:', pickBp(v.buildProperties));
+      dumpProps('boardDetails', v.buildProperties);
     } else if (k === 'compileSummary' && v) {
-      log(`api.${k}: keys=`, Object.keys(v), '| buildPath=', v.buildPath);
-      log('  buildProperties:', pickBp(v.buildProperties));
+      log(`api.${k}: keys=`, Object.keys(v), '| buildPath=', v.buildPath, '| usedLibraries=', (v.usedLibraries || []).length, '| executableSectionsSize=', v.executableSectionsSize);
+      dumpProps('compileSummary', v.buildProperties);
     } else log(`api.${k}:`, v);
   }
 }
@@ -54,6 +62,8 @@ async function inspectApi() {
   log('packageJSON.version:', ext.packageJSON && ext.packageJSON.version, '| isActive:', ext.isActive);
   const api = ext.isActive ? ext.exports : await ext.activate();
   if (!api) { log('exports undefined after activate'); return undefined; }
+  for (let i = 0; i < 30 && api.fqbn === undefined; i++) await new Promise((r) => setTimeout(r, 500));
+  log('state populated after polling:', api.fqbn !== undefined);
   describe(api);
   log('onDidChange typeof:', typeof api.onDidChange);
   return api;
@@ -77,9 +87,9 @@ async function listCommands() {
   log('=== [2] commands ===');
   const all = await vscode.commands.getCommands(true);
   log('total commands:', all.length);
-  const hits = all.filter((c) => /arduino|verify|compile|upload|sketch|export/i.test(c)).sort();
+  const hits = all.filter((c) => /arduino|verify|compile|upload|sketch|export/i.test(c) && !/^arduino-(open-example|open-recent|include-library)/.test(c)).sort();
   log('filtered /arduino|verify|compile|upload|sketch|export/i (' + hits.length + '):\n  ' + hits.join('\n  '));
-  for (const id of ['arduino-verify-sketch', 'arduino-export-binaries', 'arduino-verify-sketch-clean', 'arduino-is-optimize-for-debug']) {
+  for (const id of ['arduino-verify-sketch', 'arduino-export-binaries', 'arduino-verify-sketch-clean', 'arduino-is-optimize-for-debug', 'arduinoAPI.updateState']) {
     log(`  registered '${id}':`, all.includes(id));
   }
 }
@@ -103,6 +113,7 @@ async function runVerify(api) {
   if (after && after.buildPath) {
     try { log('buildPath listing:', fs.readdirSync(after.buildPath).slice(0, 80)); } catch (e) { log('readdir failed:', String(e)); }
   }
+  if (after) { log('--- describe() after verify ---'); describe(api); }
   if (d) d.dispose();
 }
 

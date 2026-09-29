@@ -2,11 +2,11 @@
   "name": "uf2export-spike",
   "displayName": "UF2 Export Spike (throwaway)",
   "publisher": "uf2export",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Phase 0 probe for Arduino IDE 2.x. Logs to OutputChannel 'UF2 Spike'. Not for release.",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.50.0"
+    "vscode": "^1.96.0"
   },
   "main": "./extension.js",
   "activationEvents": [
