@@ -2,17 +2,97 @@
   "name": "uf2-export",
   "displayName": "UF2 Export",
   "description": "Compile the current Arduino IDE 2.x sketch for the selected board and export a .uf2.",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "license": "MIT",
-  "engines": { "vscode": "^1.96.0" },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "build": "esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --external:vscode --minify --sourcemap --outfile=dist/extension.js",
+    "package": "npm run typecheck && npm test && npm run build && vsce package --no-dependencies --skip-license -o uf2-export.vsix"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "publisher": "uf2export",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "*"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "uf2export.export",
+        "title": "UF2: Export\u2026"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "uf2export.export",
+        "key": "ctrl+alt+u",
+        "mac": "cmd+alt+u"
+      }
+    ],
+    "configuration": {
+      "title": "UF2 Export",
+      "properties": {
+        "uf2export.arduinoCliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to `arduino-cli` for the fallback build. Empty: the CLI bundled with the IDE, else `arduino-cli` from PATH."
+        },
+        "uf2export.buildMethod": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ide",
+            "cli"
+          ],
+          "default": "auto",
+          "markdownDescription": "`auto`: IDE verify command, arduino-cli only if the command does not exist. `cli` always uses arduino-cli (board options come from the IDE selection)."
+        },
+        "uf2export.overrides": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Per-board mapping, keyed by FQBN without options, e.g. `{ \"vendor:arch:board\": { \"familyId\": \"NRF52840\", \"input\": \"hex\" } }`. `familyId`: number, `\"0x\u2026\"` string or `short_name` from uf2families.json. `input`: `hex`, `bin` (needs `baseAddress`) or `uf2` (passthrough). Overrides win over built-in rules.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "familyId": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "baseAddress": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "input": {
+                "type": "string",
+                "enum": [
+                  "hex",
+                  "bin",
+                  "uf2"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
