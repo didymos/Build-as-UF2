@@ -154,9 +154,15 @@ function activate(ctx) {
   ctx.subscriptions.push(out);
   log('activate() called', new Date().toISOString());
   const sb = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000);
-  sb.text = 'UF2 Spike'; sb.command = 'uf2spike.probe'; sb.tooltip = 'Run Phase-0 probe'; sb.show();
-  ctx.subscriptions.push(sb);
+  sb.text = 'UF2 Spike'; sb.command = 'uf2spike.menu'; sb.tooltip = 'Phase-0: pick probe / verify / dump'; sb.show();
+  const sbv = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 999);
+  sbv.text = 'UF2 Verify'; sbv.command = 'uf2spike.verify'; sbv.tooltip = 'Run IDE verify and measure'; sbv.show();
+  ctx.subscriptions.push(sb, sbv);
   const reg = (id, fn) => ctx.subscriptions.push(vscode.commands.registerCommand(id, fn));
+  reg('uf2spike.menu', async () => {
+    const pick = await vscode.window.showQuickPick(['probe', 'verify', 'dumpApi']);
+    if (pick) await vscode.commands.executeCommand('uf2spike.' + pick);
+  });
   reg('uf2spike.probe', () => probe(ctx).catch((e) => log('probe failed:', String(e && e.stack || e))));
   reg('uf2spike.dumpApi', async () => { out.show(true); const api = await inspectApi(); subscribe(api, ctx); });
   reg('uf2spike.verify', async () => {
