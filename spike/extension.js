@@ -7,7 +7,12 @@ const path = require('path');
 
 const API_ID = 'dankeboy36.vscode-arduino-api';
 let out;
-const log = (...a) => out.appendLine(a.map((x) => (typeof x === 'string' ? x : safe(x))).join(' '));
+const LOGFILE = path.join(os.homedir(), 'uf2spike.log');
+const log = (...a) => {
+  const line = a.map((x) => (typeof x === 'string' ? x : safe(x))).join(' ');
+  out.appendLine(line);
+  try { fs.appendFileSync(LOGFILE, line + '\n'); } catch (e) { /* ignore */ }
+};
 function safe(v, max = 4000) {
   try {
     const s = JSON.stringify(v, (k, x) => (typeof x === 'function' ? '[fn]' : x), 1);
@@ -115,6 +120,9 @@ async function runVerify(api) {
   }
   if (after) { log('--- describe() after verify ---'); describe(api); }
   if (d) d.dispose();
+  log('=== VERIFY SUMMARY: resolved after', t1 - t0, 'ms | returned', ret === undefined ? 'undefined' : 'object', '| events at resolve', changed, '| buildPath', after && after.buildPath, '===');
+  out.show(true);
+  vscode.window.showInformationMessage(`UF2 Spike: verify resolved after ${t1 - t0} ms, compileSummary events=${changed}, buildPath=${after && after.buildPath}. Full log: ${LOGFILE}`);
 }
 
 function findCli() {
